@@ -1,0 +1,18 @@
+{
+  "llm": {
+    "provider": "openai",
+    "apiKey": "${ENV:OPENAI_API_KEY}",
+    "model": "qwen-plus",
+    "temperature": 0.7,
+    "maxTokens": 2000,
+    "mock": true
+  },
+  "session": {
+    "maxHistoryLength": 100,
+    "sessionTTL": 3600
+  },
+  "logging": {
+    "level": "info",
+    "file": "logs/agent.log"
+  }
+}

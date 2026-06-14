@@ -1,0 +1,28 @@
+{
+  "mcpServers": [
+    {
+      "name": "example-mcp-server",
+      "url": "http://localhost:3000",
+      "description": "Example MCP Server"
+    }
+  ],
+  "builtinTools": [
+    {
+      "name": "calculator",
+      "description": "Perform mathematical calculations",
+      "parameters": [
+        {
+          "name": "expression",
+          "type": "string",
+          "required": true,
+          "description": "Mathematical expression to evaluate"
+        }
+      ]
+    },
+    {
+      "name": "get_current_time",
+      "description": "Get current date and time",
+      "parameters": []
+    }
+  ]
+}
