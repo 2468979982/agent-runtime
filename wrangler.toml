@@ -1,4 +1,29 @@
-main="server.ts"
+name = "agent-runtime"
+main = "src/worker.ts"
+compatibility_date = "2024-06-05"
+compatibility_flags = ["nodejs_compat"]
 
-[site]
-bucket = "./dist"
+# Environment variables (non-sensitive)
+[vars]
+LOG_LEVEL = "info"
+
+# Secrets (sensitive data - set via wrangler secret put)
+# OPENAI_API_KEY - set via: wrangler secret put OPENAI_API_KEY
+# BASE_URL - set via: wrangler secret put BASE_URL
+
+# Build configuration
+[build]
+command = "npm run build"
+cwd = "."
+watch_dir = "src"
+
+# Upload configuration
+[upload]
+format = "modules"
+
+# No static assets needed for API Worker
+# [site] is not needed for Workers (only for Pages)
+
+# Logging
+[observability]
+logs = { enabled = true }
