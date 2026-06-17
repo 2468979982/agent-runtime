@@ -5,7 +5,7 @@
     "model": "qwen-plus",
     "temperature": 0.7,
     "maxTokens": 2000,
-    "mock": true
+    "mock": false
   },
   "session": {
     "maxHistoryLength": 100,

@@ -3,7 +3,6 @@ import { LLMConfig, Message, ChatResponse } from '../types';
 import { Logger } from '../utils/logger';
 
 export class LLMConnector {
-  private client: OpenAI;
   private config: LLMConfig;
   private logger: Logger;
   private maxRetries: number = 3;
@@ -14,7 +13,7 @@ export class LLMConnector {
     this.config = config;
     this.logger = logger || new Logger();
     this.mock = config.mock || false;
-    
+
     // Debug: print config.mock
     this.writeDebugLog('LLMConnector.constructor()', {
       'config.mock': config.mock,
@@ -24,7 +23,7 @@ export class LLMConnector {
     // Read API key and base URL from environment variables (override config if present)
     let apiKey = config.apiKey;
     let baseURL = config.baseURL || '';
-    
+
     // Expand ${ENV:...} references in apiKey
     if (apiKey && apiKey.startsWith('${ENV:') && apiKey.endsWith('}')) {
       const envVarName = apiKey.substring(7, apiKey.length - 1);
@@ -34,37 +33,31 @@ export class LLMConnector {
         'expanded': apiKey ? '***' + apiKey.substr(-4) : '(empty)'
       });
     }
-    
+
     // Override with process.env values if present
     if (process.env.OPENAI_API_KEY) {
       apiKey = process.env.OPENAI_API_KEY;
       this.writeDebugLog('LLMConnector.constructor() - using process.env.OPENAI_API_KEY', {});
     }
-    
+
     if (process.env.BASE_URL) {
       baseURL = process.env.BASE_URL;
       this.writeDebugLog('LLMConnector.constructor() - using process.env.BASE_URL', {
         'baseURL': baseURL
       });
     }
-    
+
     if (!apiKey) {
       throw new Error('LLM API key not found. Set OPENAI_API_KEY in .env or config file.');
     }
 
-    // Initialize OpenAI client
-    const clientConfig: any = {
-      apiKey: apiKey,
-      timeout: 60000 // 60 seconds timeout
-    };
-
-    // If using OpenAI-compatible API, set base URL
-    if (baseURL) {
-      clientConfig.baseURL = baseURL;
-      this.writeDebugLog('LLMConnector.constructor() - setting baseURL', { 'baseURL': baseURL });
-    }
-
-    this.client = new OpenAI(clientConfig);
+    // Debug: print final config
+    this.writeDebugLog('LLMConnector.constructor() - final config', {
+      'this.config.model': this.config.model,
+      'this.config.apiKey': this.config.apiKey ? '***' + this.config.apiKey.substr(-4) : '(empty)',
+      'this.config.baseURL': this.config.baseURL,
+      'this.mock': this.mock
+    });
   }
 
   /**
@@ -74,13 +67,13 @@ export class LLMConnector {
     try {
       const fs = require('fs');
       const path = require('path');
-      
+
       // Use absolute path for logs directory
       const logDir = path.join(process.cwd(), 'logs');
       if (!fs.existsSync(logDir)) {
         fs.mkdirSync(logDir, { recursive: true });
       }
-      
+
       const logPath = path.join(logDir, `llm-connector-debug-${Date.now()}.json`);
       const logData = {
         timestamp: new Date().toISOString(),
@@ -89,9 +82,9 @@ export class LLMConnector {
         pid: process.pid,
         ppid: process.ppid
       };
-      
+
       fs.writeFileSync(logPath, JSON.stringify(logData, null, 2));
-      
+
       // Also log to console.error (goes to stderr, not buffered)
       console.error(`[LLMConnector] ${method} - debug log written to: ${logPath}`);
     } catch (error: any) {
@@ -110,24 +103,24 @@ export class LLMConnector {
       hasTools: !!tools?.length,
       lastMessage: messages[messages.length - 1]?.content?.substring(0, 100)
     });
-    
+
     // Log to console as well
     this.logger.info('LLMConnector.chat() called', {
       mock: this.mock,
       messageCount: messages.length
     });
-    
+
     // Mock mode: return mock response
     if (this.mock) {
       this.writeDebugLog('chat() - mock mode', {
         messageCount: messages.length,
         mockResponse: '[Mock] This is a mock response from LLM.'
       });
-      
+
       this.logger.info('Mock mode: returning mock response', {
         messageCount: messages.length
       });
-      
+
       // Return mock response
       return {
         content: `[Mock] I received your message: "${messages[messages.length - 1]?.content || ''}". This is a mock response from LLM.`,
@@ -163,8 +156,10 @@ export class LLMConnector {
         }
 
         // Write FULL request details to file (GUARANTEED to execute)
+        const baseURL = this.config.baseURL || process.env.BASE_URL || 'https://api.openai.com/v1';
+        const url = `${baseURL}/chat/completions`;
         this.writeDebugLog('chat() - request details', {
-          url: `${this.client.baseURL || 'https://api.openai.com/v1'}/chat/completions`,
+          url,
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -173,29 +168,31 @@ export class LLMConnector {
           body: requestBody
         });
 
-        const requestParams: OpenAI.Chat.ChatCompletionCreateParams = {
-          model: this.config.model,
-          messages: this.convertMessages(messages),
-          temperature: this.config.temperature,
-          max_tokens: this.config.maxTokens
-        };
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.config.apiKey}`
+          },
+          body: JSON.stringify(requestBody)
+        });
 
-        // Add tools if provided
-        if (tools && tools.length > 0) {
-          requestParams.tools = tools;
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`${response.status} ${errorText}`);
         }
 
-        const response = await this.client.chat.completions.create(requestParams);
+        const responseData: any = await response.json();
 
         this.logger.info('Received LLM response', {
-          usage: response.usage
+          usage: responseData.usage
         });
 
         // Write FULL response details to file (GUARANTEED to execute)
         this.writeDebugLog('chat() - response details', {
-          status: 200,
-          usage: response.usage,
-          choices: response.choices.map(c => ({
+          status: response.status,
+          usage: responseData.usage,
+          choices: responseData.choices.map((c: any) => ({
             index: c.index,
             message: {
               role: c.message.role,
@@ -205,10 +202,32 @@ export class LLMConnector {
           }))
         });
 
-        return this.parseResponse(response);
+        // Convert fetch response to ChatResponse format
+        const choices = responseData.choices || [];
+        const firstChoice = choices[0] || {};
+        const message = firstChoice.message || {};
+        
+        const chatResponse: ChatResponse = {
+          content: message.content || '',
+          toolCalls: message.tool_calls?.map((tc: any) => ({
+            id: tc.id,
+            type: 'function' as const,
+            function: {
+              name: tc.function?.name || '',
+              arguments: tc.function?.arguments || '{}'
+            }
+          })) || undefined,
+          usage: responseData.usage ? {
+            promptTokens: responseData.usage.prompt_tokens || 0,
+            completionTokens: responseData.usage.completion_tokens || 0,
+            totalTokens: responseData.usage.total_tokens || 0
+          } : undefined
+        };
+
+        return chatResponse;
       } catch (error: any) {
         lastError = error;
-        
+
         this.logger.warn(`LLM API call failed (attempt ${attempt + 1})`, {
           error: error.message,
           status: error.status
@@ -280,7 +299,7 @@ export class LLMConnector {
    */
   private parseResponse(response: OpenAI.Chat.ChatCompletion): ChatResponse {
     const choice = response.choices[0];
-    
+
     if (!choice) {
       throw new Error('No choice in LLM response');
     }
@@ -348,23 +367,15 @@ export class LLMConnector {
   updateConfig(newConfig: Partial<LLMConfig>): void {
     this.config = { ...this.config, ...newConfig };
     this.mock = this.config.mock || false;
-    
+
     this.writeDebugLog('updateConfig()', {
       newConfig,
       'this.mock': this.mock
     });
-    
-    // Reinitialize client if API key or base URL changed
+
+    // Reinitialize config if API key or base URL changed
     if (newConfig.apiKey || newConfig.baseURL) {
-      const clientConfig: any = {
-        apiKey: this.config.apiKey
-      };
-
-      if (this.config.baseURL) {
-        clientConfig.baseURL = this.config.baseURL;
-      }
-
-      this.client = new OpenAI(clientConfig);
+      this.logger.info('LLM config updated, will use new settings for next request');
     }
   }
 
