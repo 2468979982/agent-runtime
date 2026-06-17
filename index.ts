@@ -105,6 +105,30 @@ export class AgentRuntime {
       const tools = this.toolManager.getToolDefinitions();
 
       // Call LLM
+      this.logger.info('Calling LLM API', {
+        sessionId,
+        messageCount: history.length,
+        hasTools: tools.length > 0
+      });
+      
+      // Print full request details for debugging (write to file)
+      try {
+        const requestDetails = {
+          timestamp: new Date().toISOString(),
+          sessionId,
+          messageCount: history.length,
+          hasTools: tools.length > 0,
+          tools: tools.length > 0 ? tools : undefined
+        };
+        
+        const fs = require('fs');
+        const logPath = 'C:\\temp\\agent-runtime-request-debug.json';
+        fs.writeFileSync(logPath, JSON.stringify(requestDetails, null, 2));
+        this.logger.info(`Request details written to: ${logPath}`);
+      } catch (error: any) {
+        this.logger.error('Failed to write request details', { error: error.message });
+      }
+      
       let llmResponse: ChatResponse = await this.llmConnector.chat(
         history,
         tools.length > 0 ? tools : undefined

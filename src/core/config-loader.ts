@@ -16,6 +16,9 @@ export class ConfigLoader {
   loadAgentConfig(configPath: string): AgentConfig {
     const config = this.loadAndParseConfig(configPath);
     
+    // Debug: print config
+    console.log('[DEBUG] loadAgentConfig() - config:', JSON.stringify(config, null, 2));
+    
     // Substitute environment variables
     const substitutedConfig = this.substituteEnvVariables(config);
     
@@ -136,7 +139,8 @@ export class ConfigLoader {
             baseURL: { type: 'string' },
             model: { type: 'string' },
             temperature: { type: 'number', minimum: 0, maximum: 2 },
-            maxTokens: { type: 'number', minimum: 1 }
+            maxTokens: { type: 'number', minimum: 1 },
+            mock: { type: 'boolean' }
           }
         },
         session: {
