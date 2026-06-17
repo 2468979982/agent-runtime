@@ -1,6 +1,8 @@
 import OpenAI from 'openai';
 import { LLMConfig, Message, ChatResponse } from '../types';
 import { Logger } from '../utils/logger';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export class LLMConnector {
   private config: LLMConfig;
@@ -65,9 +67,6 @@ export class LLMConnector {
    */
   private writeDebugLog(method: string, data: any): void {
     try {
-      const fs = require('fs');
-      const path = require('path');
-
       // Use absolute path for logs directory
       const logDir = path.join(process.cwd(), 'logs');
       if (!fs.existsSync(logDir)) {

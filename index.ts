@@ -208,25 +208,21 @@ export class AgentRuntime {
    * Register builtin tools
    */
   private registerBuiltinTools(): void {
-    // Register a simple calculator tool
+    // Import and register calculator tool
+    const { CalculatorTool } = require('./src/tools/builtin/calculator');
+    const calculator = new CalculatorTool(this.logger);
     this.toolManager.registerBuiltinTool('calculator', async (args: any) => {
-      try {
-        const result = eval(args.expression);
-        return { result };
-      } catch (error: any) {
-        return { error: error.message };
-      }
+      return await calculator.execute(args);
     });
 
-    // Register a current time tool
+    // Import and register get_current_time tool
+    const { GetCurrentTimeTool } = require('./src/tools/builtin/get-current-time');
+    const getTime = new GetCurrentTimeTool(this.logger);
     this.toolManager.registerBuiltinTool('get_current_time', async (args: any) => {
-      return {
-        currentTime: new Date().toISOString(),
-        timezone: 'UTC'
-      };
+      return await getTime.execute(args);
     });
 
-    this.logger.info('Builtin tools registered');
+    this.logger.info('Builtin tools registered (using proper implementations)');
   }
 
   /**
